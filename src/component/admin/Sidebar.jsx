@@ -4,28 +4,30 @@ import MEDLOGO from '../../assets/LOGO.svg';
 import { FaUserCircle } from 'react-icons/fa';
 import LogoutModal from './LogoutModal';
 import { useAuth } from './AuthContext';
-
 import { BiFoodMenu } from 'react-icons/bi';
-
 import { MdLogout } from 'react-icons/md';
-import { FaUsers } from 'react-icons/fa6';
+import { TbBoxModel } from 'react-icons/tb';
 import { BiCategory } from 'react-icons/bi';
+import ProfileModal from '../ProfileModal'; // Adjust the path as needed
 
 const Sidebar = ({ children, title }) => {
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 	const [isNotification, setIsNotification] = useState(false);
-	const [isVisible, setIsVisble] = useState(false);
+	const [isVisible, setIsVisible] = useState(false);
+	const [isProfileModalOpen, setIsProfileModalOpen] = useState(false); // State for ProfileModal
 	const dropdownRef = useRef(null);
 	const buttonRef = useRef(null);
-	const notifiactionRef = useRef(null);
-	const notifiactionbuttonRef = useRef(null);
+	const notificationRef = useRef(null);
+	const notificationButtonRef = useRef(null);
 	const location = useLocation();
 
 	const { logout } = useAuth();
 	const navigate = useNavigate();
-	const handleprofile = () => {
-		navigate('/user/profile');
+
+	const handleProfile = () => {
+		setIsProfileModalOpen(true); // Open ProfileModal instead of navigating
+		setIsDropdownOpen(false); // Close the dropdown
 	};
 
 	useEffect(() => {
@@ -51,10 +53,10 @@ const Sidebar = ({ children, title }) => {
 	useEffect(() => {
 		function handleClickOutside(event) {
 			if (
-				notifiactionRef.current &&
-				!notifiactionRef.current.contains(event.target) &&
-				notifiactionbuttonRef.current &&
-				!notifiactionbuttonRef.current.contains(event.target)
+				notificationRef.current &&
+				!notificationRef.current.contains(event.target) &&
+				notificationButtonRef.current &&
+				!notificationButtonRef.current.contains(event.target)
 			) {
 				setIsDropdownOpen(false);
 				setIsNotification(false);
@@ -72,20 +74,20 @@ const Sidebar = ({ children, title }) => {
 	const email = localStorage.getItem('email');
 
 	const onClose = () => {
-		setIsVisble(false);
+		setIsVisible(false);
 	};
 
 	return (
 		<div className="flex flex-col min-h-screen">
-			<nav className="  fixed top-0 z-50 w-full bg-white shadow">
-				<div className=" relative px-3 py-1 lg:px-5 lg:pl-3">
+			<nav className="fixed top-0 z-50 w-full bg-white shadow">
+				<div className="relative px-3 py-1 lg:px-5 lg:pl-3">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center">
 							<button
 								onClick={() => setIsSidebarOpen(!isSidebarOpen)}
 								aria-controls="logo-sidebar"
 								type="button"
-								className="inline-flex items-center p-2 text-sm  rounded-lg md:hidden  hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[rgba(201, 160, 56, 0.3)] 0  ">
+								className="inline-flex items-center p-2 text-sm rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[rgba(201, 160, 56, 0.3)]">
 								<span className="sr-only">Open sidebar</span>
 								<svg
 									className="w-6 h-6"
@@ -108,20 +110,22 @@ const Sidebar = ({ children, title }) => {
 								/>
 							</Link>
 						</div>
-						<div className="text-xl">{title}</div>
+						<div className="text-2xl font-semibold md:block hidden">
+							{title}
+						</div>
 						<div className="flex items-center">
 							<div className="flex items-center ms-3 gap-2">
 								<div className="relative">
 									<button
 										ref={buttonRef}
 										type="button"
-										className="flex cursor-pointer text-sm  rounded-full  "
+										className="flex cursor-pointer text-sm rounded-full"
 										aria-expanded={isDropdownOpen}
 										onClick={() => {
 											setIsDropdownOpen(!isDropdownOpen);
 											setIsNotification(false);
 										}}>
-										<div className="rounded-full w-8 h-8 aspect-square object-cover  border flex items-center justify-center text-xl uppercase  ">
+										<div className="rounded-full w-8 h-8 aspect-square object-cover border flex items-center justify-center text-xl uppercase">
 											<FaUserCircle size={28} />
 										</div>
 									</button>
@@ -139,11 +143,11 @@ const Sidebar = ({ children, title }) => {
 													<div className="flex flex-col justify-center items-start gap-0.5 flex-1">
 														<div className="flex gap-1 items-center">
 															<p className="text-subtitle-s1 text-ostad-black-80">
-																Md Ibrahim Khalil
+																{name || 'Md Ibrahim Khalil'}
 															</p>
 														</div>
 														<p className="text-body-b2 text-ostad-black-40">
-															mdibrahimkhalil516@gmail.com
+															{email || 'mdibrahimkhalil516@gmail.com'}
 														</p>
 													</div>
 												</div>
@@ -159,7 +163,7 @@ const Sidebar = ({ children, title }) => {
 															padding: '8px 24px',
 															fontSize: '14px',
 														}}
-														onClick={handleprofile}>
+														onClick={handleProfile}>
 														<div className="flex justify-center items-center gap-2">
 															<div className="flex justify-center items-center">
 																<img
@@ -173,10 +177,11 @@ const Sidebar = ({ children, title }) => {
 																	alt="Profile"
 																/>
 															</div>
-															<p className="whitespace-nowrap ">profile</p>
+															<p className="whitespace-nowrap">Profile</p>
 														</div>
 													</button>
 													<button
+														onClick={() => setIsVisible(!isVisible)}
 														type="button"
 														className="btn uppercase font-semibold text-[#101828] bg-[#EAECF0] hover:bg-[#D0D5DD] active:bg-[#98A2B3]"
 														style={{
@@ -224,7 +229,7 @@ const Sidebar = ({ children, title }) => {
 					isSidebarOpen ? '' : '-translate-x-full'
 				} border-r border-[rgba(201, 160, 56, 0.3)] sm:translate-x-0`}
 				aria-label="Sidebar">
-				<div className="h-full px-3 pb-4 overflow-y-auto bg-white ">
+				<div className="h-full px-3 pb-4 overflow-y-auto bg-white">
 					<ul className="space-y-2 font-medium mt-10">
 						<li>
 							<Link
@@ -256,7 +261,6 @@ const Sidebar = ({ children, title }) => {
 								<span className="ms-3 text-[#222222]">Category</span>
 							</Link>
 						</li>
-
 						<li>
 							<Link
 								to="/model"
@@ -265,17 +269,16 @@ const Sidebar = ({ children, title }) => {
 										? 'bg-[#C9A0384D] text-gray-900'
 										: 'text-gray-900 hover:bg-gray-100'
 								}`}>
-								<BiCategory
+								<TbBoxModel
 									size={25}
 									className="transition duration-75 group-hover:text-gray-900"
 								/>
 								<span className="ms-3 text-[#222222]">Model</span>
 							</Link>
 						</li>
-
 						<li className="absolute bottom-10 w-[85%]">
 							<button
-								onClick={() => setIsVisble(!isVisible)}
+								onClick={() => setIsVisible(!isVisible)}
 								className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100 group w-full">
 								<MdLogout
 									size={25}
@@ -288,9 +291,14 @@ const Sidebar = ({ children, title }) => {
 				</div>
 			</aside>
 
-			<div className="flex-1 min-h-[90vh] h-auto sm:ml-64 mt-14 overflow-auto py-10 ">
+			<div className="flex-1 min-h-[90vh] h-auto sm:ml-64 mt-14 overflow-auto py-10">
 				{children}
 			</div>
+
+			<ProfileModal
+				isOpen={isProfileModalOpen}
+				onClose={() => setIsProfileModalOpen(false)}
+			/>
 		</div>
 	);
 };

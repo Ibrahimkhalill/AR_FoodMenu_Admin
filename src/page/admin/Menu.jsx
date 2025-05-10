@@ -4,8 +4,9 @@ import { FaArrowLeft, FaStar, FaThumbsUp, FaThumbsDown } from 'react-icons/fa';
 import { FaPencilAlt, FaTrashAlt } from 'react-icons/fa';
 import Sidebar from '../../component/admin/Sidebar';
 import axiosInstance from '../../component/axiosInstance';
-
 import SkeletonLoader from '../../component/SkeletonLoader';
+import SuccessModal from '../../component/SuccessModal';
+import DeleteConfirmationModal from '../../component/DeleteConfirmationModal'; // Adjust the path as needed
 
 export default function Menu() {
 	const { categoryName } = useParams();
@@ -27,6 +28,10 @@ export default function Menu() {
 	});
 	const [error, setError] = useState(null);
 	const [categories, setCategories] = useState([]);
+	const [sucessModal, setSucessModal] = useState(false);
+	const [messages, setMessage] = useState('');
+	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+	const [deleteId, setDeleteId] = useState(null);
 
 	// Fetch categories and foods on mount
 	useEffect(() => {
@@ -96,8 +101,8 @@ export default function Menu() {
 			formData.append('three_d_picture', newFood.modelFile);
 			formData.append('description', newFood.description);
 			formData.append('price', parseFloat(newFood.price));
-			formData.append('size', parseFloat(newFood.size));
-			formData.append('time', parseFloat(newFood.time));
+			formData.append('size', newFood.size);
+			formData.append('time', newFood.time);
 
 			// Send the FormData to the API
 			const response = await axiosInstance.post(
@@ -112,6 +117,8 @@ export default function Menu() {
 
 			if (response.status === 200 || response.status === 201) {
 				// Refresh food list
+				setMessage('Food item created successfully');
+				setSucessModal(true);
 				const foodResponse = await axiosInstance.get(
 					'restaurant/get_all_foods/'
 				);
@@ -136,32 +143,42 @@ export default function Menu() {
 		}
 	};
 
-	const handleDelete = async (id) => {
-		if (!window.confirm('Are you sure you want to delete this food item?')) {
-			return;
-		}
+	const handleDelete = (id) => {
+		setDeleteId(id);
+		setMessage('Are you sure you want to delete this menu?');
+		setIsDeleteModalOpen(true);
+	};
 
-		setError('');
+	const confirmDelete = async () => {
+		if (deleteId) {
+			setIsLoading(true); // Show loader for delete
+			setError('');
+			setIsDeleteModalOpen(false);
 
-		try {
-			const response = await axiosInstance.delete(
-				`restaurant/delete_food/${id}/`
-			);
-
-			if (response.status === 204 || response.status === 200) {
-				alert('✅ Food deleted successfully');
-				const foodResponse = await axiosInstance.get(
-					'restaurant/get_all_foods/'
+			try {
+				const response = await axiosInstance.delete(
+					`restaurant/delete_food/${deleteId}/`
 				);
-				setFoods(foodResponse.data);
-			} else {
-				throw new Error('Failed to delete food item');
+
+				if (response.status === 204 || response.status === 200) {
+					setMessage('Food item deleted successfully');
+					setSucessModal(true);
+					const foodResponse = await axiosInstance.get(
+						'restaurant/get_all_foods/'
+					);
+					setFoods(foodResponse.data);
+				} else {
+					throw new Error('Failed to delete food item');
+				}
+			} catch (err) {
+				setError(
+					err.response?.data?.message ||
+						'Failed to delete food item. Please try again.'
+				);
+			} finally {
+				setIsLoading(false); // Hide loader
+				setDeleteId(null);
 			}
-		} catch (err) {
-			setError(
-				err.response?.data?.message ||
-					'Failed to delete food item. Please try again.'
-			);
 		}
 	};
 
@@ -172,24 +189,22 @@ export default function Menu() {
 	};
 
 	return (
-		<Sidebar>
+		<Sidebar title={'Menu'}>
 			<div className="min-h-screen bg-white p-4">
 				{/* Header */}
 				<div className="flex justify-between items-center mb-4">
-					<button onClick={() => navigate(-1)} className="text-teal-600">
-						<FaArrowLeft size={24} />
-					</button>
+					<button className="text-teal-600"></button>
 					<button
 						onClick={handleAddFood}
 						className="bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600 transition">
-						ADD FOOD
+						Add Menu
 					</button>
 				</div>
 
 				{/* Food Grid or Skeleton Loader */}
 				{isSkeletonLoading ? (
 					<div className="">
-						{/* Render 6 skeleton placeholders */}
+						{/* Render skeleton placeholders */}
 						<SkeletonLoader />
 					</div>
 				) : (
@@ -202,23 +217,26 @@ export default function Menu() {
 								<img
 									src={`https://bdcallingarbackend.duckdns.org${food.normal_picture}`}
 									alt={food.item_name}
-									className="w-full h-40 object-cover rounded-t-lg"
+									className="w-full h-56 object-cover rounded-t-lg"
 								/>
 								<div className="p-4 flex flex-col items-start">
-									<div className="flex w-full justify-between items-center mb-2">
+									<div className="flex md:flex-row flex-col w-full md:justify-between md:items-center items-start md:mb-2">
 										<h4 className="text-lg font-bold text-gray-800">
 											{food.item_name}
 										</h4>
-										<span className="text-green-500 font-bold text-lg">
+										<span className="text-green-500 font-bold md:text-lg  ">
 											BDT {food.price}
 										</span>
 									</div>
 									<p className="text-green-500 text-sm mb-2">
 										Category: {food.category_name}
 									</p>
-									<p className="text-gray-600 text-sm">{food.description}</p>
+
 									<button
-										onClick={() => handleDelete(food.id)}
+										onClick={(e) => {
+											e.stopPropagation(); // Prevent navigating when clicking delete
+											handleDelete(food.id);
+										}}
 										className="bg-slate-50 text-gray-700 text-xs font-bold rounded-full px-2 py-1 absolute top-2 right-2">
 										<FaTrashAlt size={15} color="red" className="inline" />
 									</button>
@@ -230,7 +248,7 @@ export default function Menu() {
 
 				{/* Modal for Adding Food */}
 				{isModalOpen && (
-					<div className="fixed inset-0  bg-black bg-opacity-[0.5] flex items-center justify-center z-50">
+					<div className="fixed inset-0 bg-black bg-opacity-[0.5] flex items-center justify-center z-50">
 						<div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
 							<h2 className="text-2xl font-bold text-gray-800 mb-4">
 								Add New Food Item
@@ -334,7 +352,7 @@ export default function Menu() {
 											onChange={(e) =>
 												setNewFood({ ...newFood, time: e.target.value })
 											}
-											className="w-full p-2 border rounded academic-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+											className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
 											required
 											disabled={isLoading}
 										/>
@@ -382,6 +400,21 @@ export default function Menu() {
 					</div>
 				)}
 			</div>
+
+			<SuccessModal
+				isOpen={sucessModal}
+				message={messages}
+				onClose={() => setSucessModal(false)}
+			/>
+			<DeleteConfirmationModal
+				isOpen={isDeleteModalOpen}
+				onConfirm={confirmDelete}
+				onCancel={() => {
+					setIsDeleteModalOpen(false);
+					setDeleteId(null);
+				}}
+				message={messages}
+			/>
 		</Sidebar>
 	);
 }

@@ -5,6 +5,9 @@ import Sidebar from '../../component/admin/Sidebar';
 import axiosInstance from '../../component/axiosInstance';
 import { FaPencilAlt, FaTrashAlt } from 'react-icons/fa';
 import CategorySkelton from '../../component/admin/CategorySkelton';
+import SuccessModal from '../../component/SuccessModal';
+import WarningModal from '../../component/WarningModal';
+import DeleteConfirmationModal from '../../component/DeleteConfirmationModal'; // Adjust the path as needed
 
 export default function Categories() {
 	const navigate = useNavigate();
@@ -14,6 +17,10 @@ export default function Categories() {
 	const [isSkeletonLoading, setIsSkeletonLoading] = useState(true); // For skeleton loader
 	const [newCategory, setNewCategory] = useState({ name: '', image: '' });
 	const [error, setError] = useState(null);
+	const [sucessModal, setSucessModal] = useState(false);
+	const [messages, setMessage] = useState('');
+	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+	const [deleteId, setDeleteId] = useState(null);
 
 	// Fetch categories from API
 	useEffect(() => {
@@ -59,7 +66,8 @@ export default function Categories() {
 			});
 
 			if (response.status === 200 || response.status === 201) {
-				alert('Category created successfully');
+				setMessage('Category created successfully');
+				setSucessModal(true);
 				// Refresh category list
 				await fetchSeminarData();
 				setNewCategory({ name: '', image: '' });
@@ -73,32 +81,40 @@ export default function Categories() {
 		}
 	};
 
-	const handleDelete = async (id) => {
-		if (!window.confirm('Are you sure you want to delete this category?')) {
-			return;
-		}
+	const handleDelete = (id) => {
+		setDeleteId(id);
+		setMessage('Are you sure you want to delete this category?');
+		setIsDeleteModalOpen(true);
+	};
 
-		setIsLoading(true); // Show loader for delete
-		setError('');
+	const confirmDelete = async () => {
+		if (deleteId) {
+			setIsLoading(true); // Show loader for delete
+			setError('');
+			setIsDeleteModalOpen(false);
 
-		try {
-			const response = await axiosInstance.delete(
-				`restaurant/delete_category/${id}/`
-			);
+			try {
+				const response = await axiosInstance.delete(
+					`restaurant/delete_category/${deleteId}/`
+				);
 
-			if (response.status === 204 || response.status === 200) {
-				console.log('✅ Category deleted successfully');
-				await fetchSeminarData(); // Refresh the category list
-			} else {
-				throw new Error('Failed to delete category');
+				if (response.status === 204 || response.status === 200) {
+					console.log('✅ Category deleted successfully');
+					setMessage('Category deleted successfully');
+					setSucessModal(true);
+					await fetchSeminarData(); // Refresh the category list
+				} else {
+					throw new Error('Failed to delete category');
+				}
+			} catch (err) {
+				setError(
+					err.response?.data?.message ||
+						'Failed to delete category. Please try again.'
+				);
+			} finally {
+				setIsLoading(false); // Hide loader
+				setDeleteId(null);
 			}
-		} catch (err) {
-			setError(
-				err.response?.data?.message ||
-					'Failed to delete category. Please try again.'
-			);
-		} finally {
-			setIsLoading(false); // Hide loader
 		}
 	};
 
@@ -111,7 +127,7 @@ export default function Categories() {
 						onClick={handleAddCategory}
 						className="bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600 transition"
 						disabled={isLoading}>
-						ADD CATEGORY
+						Add Category
 					</button>
 				</div>
 
@@ -124,12 +140,11 @@ export default function Categories() {
 						))}
 					</div>
 				) : (
-					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-12 gap-4">
+					<div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-12 gap-4">
 						{categories.map((category, index) => (
 							<div
 								key={index}
-								className="bg-white px-2 py-2 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
-								onClick={() => handleCategoryClick(category.category_name)}>
+								className="bg-white px-2 py-2 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition">
 								<img
 									src={
 										'https://e7.pngegg.com/pngimages/80/950/png-clipart-computer-icons-foodie-blog-categories-miscellaneous-food.png'
@@ -205,6 +220,25 @@ export default function Categories() {
 					</div>
 				)}
 			</div>
+			<SuccessModal
+				message={messages}
+				isOpen={sucessModal}
+				onClose={() => setSucessModal(false)}
+			/>
+			<WarningModal
+				message={error}
+				isOpen={error}
+				onClose={() => setError(null)}
+			/>
+			<DeleteConfirmationModal
+				isOpen={isDeleteModalOpen}
+				onConfirm={confirmDelete}
+				onCancel={() => {
+					setIsDeleteModalOpen(false);
+					setDeleteId(null);
+				}}
+				message={messages}
+			/>
 		</Sidebar>
 	);
 }

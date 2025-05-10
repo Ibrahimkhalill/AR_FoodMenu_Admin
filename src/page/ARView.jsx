@@ -70,8 +70,13 @@ export default function ARView() {
 								auto-rotate
 								ar
 								ar-modes="scene-viewer quick-look webxr"
-								className="w-full"
-								scale="1.5 1.5 1.5"></model-viewer>
+								style={{
+									width: '100%',
+									height: '40vh',
+									borderRadius: '12px',
+									boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+									backgroundColor: '#fff',
+								}}></model-viewer>
 						) : (
 							<p className="text-center text-red-500">Model not found.</p>
 						)}
