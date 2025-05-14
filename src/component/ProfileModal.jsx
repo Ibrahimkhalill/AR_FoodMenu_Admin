@@ -12,12 +12,12 @@ const ProfileModal = ({ isOpen, onClose }) => {
 	const [logoFile, setLogoFile] = useState(null);
 	const [bannerFile, setBannerFile] = useState(null);
 	const [isLoading, setIsLoading] = useState(false);
+	const [isProfileLoading, setIsProfileLoading] = useState(false);
 	const [error, setError] = useState(null);
 	const [successMessage, setSuccessMessage] = useState(null);
 
 	useEffect(() => {
 		if (isOpen) {
-			setIsLoading(true);
 			setError(null);
 			setSuccessMessage(null);
 			setLogoFile(null);
@@ -27,7 +27,6 @@ const ProfileModal = ({ isOpen, onClose }) => {
 				.then((response) => {
 					if (response.status === 200) {
 						setProfile(response.data);
-						// Initialize form data with fetched values
 						setFormData({
 							restaurant_name: response.data.restaurant_name || '',
 							restaurant_location: response.data.restaurant_location || '',
@@ -41,8 +40,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
 				.catch((err) => {
 					console.error('Error fetching profile:', err);
 					setError('Failed to fetch profile information. Please try again.');
-				})
-				.finally(() => setIsLoading(false));
+				});
 		}
 	}, [isOpen]);
 
@@ -63,7 +61,6 @@ const ProfileModal = ({ isOpen, onClose }) => {
 		setError(null);
 		setSuccessMessage(null);
 
-		// Validate password match
 		if (formData.password !== formData.confirm_password) {
 			setError('Passwords do not match.');
 			return;
@@ -71,7 +68,6 @@ const ProfileModal = ({ isOpen, onClose }) => {
 
 		setIsLoading(true);
 		try {
-			// Create FormData object for multipart form submission
 			const formDataToSend = new FormData();
 			formDataToSend.append('restaurant_name', formData.restaurant_name);
 			formDataToSend.append(
@@ -88,8 +84,8 @@ const ProfileModal = ({ isOpen, onClose }) => {
 				formDataToSend.append('homepage_banner', bannerFile);
 			}
 
-			const response = await axiosInstance.put(
-				'auth/update_my_restaurant_info/',
+			const response = await axiosInstance.patch(
+				'auth/update_resturant_info/',
 				formDataToSend,
 				{
 					headers: {
@@ -100,19 +96,16 @@ const ProfileModal = ({ isOpen, onClose }) => {
 
 			if (response.status === 200) {
 				setSuccessMessage('Profile updated successfully!');
-				// Fetch updated profile data to refresh the modal
 				const updatedProfile = await axiosInstance.get(
 					'auth/get_my_resturant_info/'
 				);
 				setProfile(updatedProfile.data);
-				// Update form data with new values
 				setFormData({
 					restaurant_name: updatedProfile.data.restaurant_name || '',
 					restaurant_location: updatedProfile.data.restaurant_location || '',
 					password: '',
 					confirm_password: '',
 				});
-				// Clear file inputs
 				setLogoFile(null);
 				setBannerFile(null);
 			} else {
@@ -129,45 +122,57 @@ const ProfileModal = ({ isOpen, onClose }) => {
 	if (!isOpen) return null;
 
 	return (
-		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-			<div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 sm:p-8 mx-4">
+		<div
+			className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="profile-modal-title">
+			<div className="bg-white rounded-lg shadow-lg max-w-md w-full p-4 sm:p-6 mx-4 max-h-[80vh] overflow-y-auto">
 				<div className="flex justify-between items-center mb-4">
-					<h3 className="text-xl sm:text-2xl font-bold text-gray-800">
+					<h3
+						id="profile-modal-title"
+						className="text-lg sm:text-xl font-bold text-gray-800">
 						Restaurant Profile
 					</h3>
 					<button
 						onClick={onClose}
-						className="text-gray-600 hover:text-gray-800 text-lg sm:text-xl">
+						className="text-gray-600 hover:text-gray-800 text-lg sm:text-xl focus:outline-none"
+						aria-label="Close modal"
+						disabled={isLoading}>
 						✕
 					</button>
 				</div>
-				{isLoading ? (
-					<div className="flex justify-center">
-						<div className="loader"></div>
+				{error ? (
+					<div className="text-center">
+						<p className="text-red-500">{error}</p>
+						<button
+							onClick={() => window.location.reload()}
+							className="mt-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition duration-200 text-sm">
+							Retry
+						</button>
 					</div>
-				) : error ? (
-					<p className="text-red-500 text-center">{error}</p>
 				) : profile ? (
 					<form onSubmit={handleSubmit} className="space-y-4">
 						{successMessage && (
 							<p className="text-green-500 text-center">{successMessage}</p>
 						)}
-						<div className="flex flex-col items-center space-y-3">
+						<div className="flex flex-col items-center space-y-4">
 							<div className="w-full">
 								<label className="font-semibold text-gray-700">
 									Restaurant Logo:
 								</label>
 								<div className="flex flex-col items-center mt-1">
 									<img
-										src={`https://bdcallingarbackend.duckdns.org${profile.restaurant_logo}`}
+										src={`${profile.restaurant_logo}`}
 										alt="Restaurant Logo"
-										className="w-24 h-24 object-cover rounded-full mb-2"
+										className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-full mb-2"
+										onError={(e) => (e.target.src = '/fallback-logo.png')} // Fallback image
 									/>
 									<input
 										type="file"
 										accept="image/*"
 										onChange={(e) => handleFileChange(e, setLogoFile)}
-										className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+										className="w-full p-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
 										disabled={isLoading}
 									/>
 								</div>
@@ -178,21 +183,22 @@ const ProfileModal = ({ isOpen, onClose }) => {
 								</label>
 								<div className="flex flex-col items-center mt-1">
 									<img
-										src={`https://bdcallingarbackend.duckdns.org${profile.homepage_banner}`}
+										src={`${profile.homepage_banner}`}
 										alt="Homepage Banner"
-										className="w-full h-32 object-cover rounded-lg mb-2"
+										className="w-full h-24 sm:h-32 object-cover rounded-lg mb-2"
+										onError={(e) => (e.target.src = '/fallback-banner.png')} // Fallback image
 									/>
 									<input
 										type="file"
 										accept="image/*"
 										onChange={(e) => handleFileChange(e, setBannerFile)}
-										className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+										className="w-full p-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
 										disabled={isLoading}
 									/>
 								</div>
 							</div>
 						</div>
-						<div className="text-sm sm:text-base space-y-3">
+						<div className="space-y-3 text-sm sm:text-base">
 							<div>
 								<label className="font-semibold text-gray-700">
 									Restaurant Name:

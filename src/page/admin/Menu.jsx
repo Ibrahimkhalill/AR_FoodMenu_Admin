@@ -1,22 +1,41 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FaArrowLeft, FaStar, FaThumbsUp, FaThumbsDown } from 'react-icons/fa';
-import { FaPencilAlt, FaTrashAlt } from 'react-icons/fa';
+import {
+	FaArrowLeft,
+	FaStar,
+	FaThumbsUp,
+	FaThumbsDown,
+	FaPencilAlt,
+	FaTrashAlt,
+} from 'react-icons/fa';
 import Sidebar from '../../component/admin/Sidebar';
 import axiosInstance from '../../component/axiosInstance';
 import SkeletonLoader from '../../component/SkeletonLoader';
 import SuccessModal from '../../component/SuccessModal';
-import DeleteConfirmationModal from '../../component/DeleteConfirmationModal'; // Adjust the path as needed
+import DeleteConfirmationModal from '../../component/DeleteConfirmationModal';
+import { ClipLoader } from 'react-spinners';
 
 export default function Menu() {
 	const { categoryName } = useParams();
 	const navigate = useNavigate();
 	const [foods, setFoods] = useState([]);
-	const [isModalOpen, setIsModalOpen] = useState(false);
-	const [isLoading, setIsLoading] = useState(false); // For form submission loader
-	const [isSkeletonLoading, setIsSkeletonLoading] = useState(true); // For skeleton loader
+	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
+	const [isDeleteLoading, setIsDeleteLoading] = useState(false);
+	const [isSkeletonLoading, setIsSkeletonLoading] = useState(true);
 	const [newFood, setNewFood] = useState({
-		category_id: '',
+		category: '',
+		name: '',
+		imageFile: null,
+		modelFile: null,
+		description: '',
+		price: '',
+		size: '',
+		time: '',
+	});
+	const [editFood, setEditFood] = useState({
+		id: null,
 		category: '',
 		name: '',
 		imageFile: null,
@@ -28,8 +47,8 @@ export default function Menu() {
 	});
 	const [error, setError] = useState(null);
 	const [categories, setCategories] = useState([]);
-	const [sucessModal, setSucessModal] = useState(false);
-	const [messages, setMessage] = useState('');
+	const [successModal, setSuccessModal] = useState(false);
+	const [message, setMessage] = useState('');
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 	const [deleteId, setDeleteId] = useState(null);
 
@@ -55,11 +74,13 @@ export default function Menu() {
 		};
 
 		const fetchFood = async () => {
+			setIsSkeletonLoading(true);
 			try {
 				const response = await axiosInstance.get('restaurant/get_all_foods/');
 				if (response.status === 200) {
 					console.log('✅ Food List Fetched:', response.data);
 					setFoods(response.data);
+					setIsSkeletonLoading(false);
 				} else {
 					console.error('❌ Error fetching food list:', response.data.error);
 					setError('Failed to load foods. Please try again.');
@@ -67,33 +88,47 @@ export default function Menu() {
 			} catch (error) {
 				console.error('❌ Error fetching food list:', error.message);
 				setError('Failed to load foods. Please try again.');
+				if (error.response?.status === 401) {
+					localStorage.removeItem('authToken');
+					window.location.href = '/login';
+				}
 			}
 		};
-
-		// Fetch both and hide skeleton when both complete
-		Promise.all([fetchCategory(), fetchFood()]).finally(() => {
-			setIsSkeletonLoading(false); // Hide skeleton after both API calls
-		});
+		fetchFood();
+		fetchCategory();
 	}, []);
 
 	const handleAddFood = () => {
-		setIsModalOpen(true);
+		setIsAddModalOpen(true);
 	};
 
-	const handleModalSubmit = async (e) => {
+	const handleEditFood = (food) => {
+		setEditFood({
+			id: food.id,
+			category: food.category,
+			name: food.item_name,
+			imageFile: null,
+			modelFile: null,
+			description: food.description,
+			price: food.price,
+			size: food.size,
+			time: food.time,
+		});
+		setIsEditModalOpen(true);
+	};
+
+	const handleAddModalSubmit = async (e) => {
 		e.preventDefault();
 		setError(null);
-		setIsLoading(true); // Show form submission loader
+		setIsLoading(true);
 
-		// Validate that both files are selected
 		if (!newFood.imageFile || !newFood.modelFile) {
 			setError('Please upload both an image and a 3D model.');
-			setIsLoading(false); // Hide loader
+			setIsLoading(false);
 			return;
 		}
 
 		try {
-			// Create a FormData object
 			const formData = new FormData();
 			formData.append('category', newFood.category);
 			formData.append('item_name', newFood.name);
@@ -104,7 +139,6 @@ export default function Menu() {
 			formData.append('size', newFood.size);
 			formData.append('time', newFood.time);
 
-			// Send the FormData to the API
 			const response = await axiosInstance.post(
 				`restaurant/add_food/${newFood.category}/`,
 				formData,
@@ -116,9 +150,8 @@ export default function Menu() {
 			);
 
 			if (response.status === 200 || response.status === 201) {
-				// Refresh food list
 				setMessage('Food item created successfully');
-				setSucessModal(true);
+				setSuccessModal(true);
 				const foodResponse = await axiosInstance.get(
 					'restaurant/get_all_foods/'
 				);
@@ -133,13 +166,77 @@ export default function Menu() {
 					size: '',
 					time: '',
 				});
-				setIsModalOpen(false);
+				setIsAddModalOpen(false);
 			}
 		} catch (err) {
 			console.error('Error creating food item:', err);
 			setError('Failed to create food item. Please try again.');
 		} finally {
-			setIsLoading(false); // Hide loader
+			setIsLoading(false);
+		}
+	};
+
+	const handleEditModalSubmit = async (e) => {
+		e.preventDefault();
+		setError(null);
+		setIsLoading(true);
+
+		try {
+			const formData = new FormData();
+			formData.append('category', editFood.category);
+			formData.append('item_name', editFood.name);
+			if (editFood.imageFile) {
+				formData.append('normal_picture', editFood.imageFile);
+			}
+			if (editFood.modelFile) {
+				formData.append('three_d_picture', editFood.modelFile);
+			}
+			formData.append('description', editFood.description);
+			formData.append('price', parseFloat(editFood.price));
+			formData.append('size', editFood.size);
+			formData.append('time', editFood.time);
+
+			const response = await axiosInstance.patch(
+				`restaurant/update_food/${editFood.id}/`,
+				formData,
+				{
+					headers: {
+						'Content-Type': 'multipart/form-data',
+					},
+				}
+			);
+
+			if (response.status === 200) {
+				setMessage('Food item updated successfully');
+				setSuccessModal(true);
+				const foodResponse = await axiosInstance.get(
+					'restaurant/get_all_foods/'
+				);
+				setFoods(foodResponse.data);
+				setEditFood({
+					id: null,
+					category: '',
+					name: '',
+					imageFile: null,
+					modelFile: null,
+					description: '',
+					price: '',
+					size: '',
+					time: '',
+				});
+				setIsEditModalOpen(false);
+			} else {
+				setError('Failed to update food item.');
+			}
+		} catch (err) {
+			console.error('Error updating food item:', err);
+			setError('Failed to update food item. Please try again.');
+			if (err.response?.status === 401) {
+				localStorage.removeItem('authToken');
+				window.location.href = '/login';
+			}
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
@@ -151,7 +248,7 @@ export default function Menu() {
 
 	const confirmDelete = async () => {
 		if (deleteId) {
-			setIsLoading(true); // Show loader for delete
+			setIsDeleteLoading(true);
 			setError('');
 			setIsDeleteModalOpen(false);
 
@@ -162,7 +259,7 @@ export default function Menu() {
 
 				if (response.status === 204 || response.status === 200) {
 					setMessage('Food item deleted successfully');
-					setSucessModal(true);
+					setSuccessModal(true);
 					const foodResponse = await axiosInstance.get(
 						'restaurant/get_all_foods/'
 					);
@@ -175,8 +272,9 @@ export default function Menu() {
 					err.response?.data?.message ||
 						'Failed to delete food item. Please try again.'
 				);
+				console.log(err.response);
 			} finally {
-				setIsLoading(false); // Hide loader
+				setIsDeleteLoading(false);
 				setDeleteId(null);
 			}
 		}
@@ -196,7 +294,8 @@ export default function Menu() {
 					<button className="text-teal-600"></button>
 					<button
 						onClick={handleAddFood}
-						className="bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600 transition">
+						className="bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600 transition"
+						disabled={isLoading}>
 						Add Menu
 					</button>
 				</div>
@@ -204,65 +303,84 @@ export default function Menu() {
 				{/* Food Grid or Skeleton Loader */}
 				{isSkeletonLoading ? (
 					<div className="">
-						{/* Render skeleton placeholders */}
 						<SkeletonLoader />
 					</div>
 				) : (
-					<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+					<div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-5 gap-4">
 						{foods.map((food, index) => (
 							<button
 								onClick={() => handleFoodClick(food.three_d_picture, food)}
 								key={index}
 								className="bg-white rounded-lg shadow-md cursor-pointer hover:shadow-lg transition relative">
 								<img
-									src={`https://bdcallingarbackend.duckdns.org${food.normal_picture}`}
+									src={`${food.normal_picture}`}
 									alt={food.item_name}
 									className="w-full h-56 object-cover rounded-t-lg"
+									onError={(e) => (e.target.src = '/fallback-food.png')}
 								/>
 								<div className="p-4 flex flex-col items-start">
-									<div className="flex md:flex-row flex-col w-full md:justify-between md:items-center items-start md:mb-2">
-										<h4 className="text-lg font-bold text-gray-800">
+									<div className="flex 2xl:flex-row flex-col w-full 2xl:justify-between 2xl:items-center items-start 2xl:mb-2">
+										<h4 className="text-lg text-left font-bold text-gray-800">
 											{food.item_name}
 										</h4>
-										<span className="text-green-500 font-bold md:text-lg  ">
+										<span className="text-green-500 font-bold 2xl:text-lg">
 											BDT {food.price}
 										</span>
 									</div>
-									<p className="text-green-500 text-sm mb-2">
+									<p className="text-green-500 text-left text-sm mb-2">
 										Category: {food.category_name}
 									</p>
-
-									<button
-										onClick={(e) => {
-											e.stopPropagation(); // Prevent navigating when clicking delete
-											handleDelete(food.id);
-										}}
-										className="bg-slate-50 text-gray-700 text-xs font-bold rounded-full px-2 py-1 absolute top-2 right-2">
-										<FaTrashAlt size={15} color="red" className="inline" />
-									</button>
+									<div className="absolute top-2 right-2 flex space-x-2">
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												handleEditFood(food);
+											}}
+											className="bg-slate-50 text-gray-700 text-xs font-bold rounded-full px-2 py-1"
+											disabled={isLoading}>
+											<FaPencilAlt size={15} color="blue" className="inline" />
+										</button>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												handleDelete(food.id);
+											}}
+											className="bg-slate-50 text-gray-700 text-xs font-bold rounded-full px-2 py-1"
+											disabled={isLoading}>
+											<FaTrashAlt size={15} color="red" className="inline" />
+										</button>
+									</div>
 								</div>
 							</button>
 						))}
 					</div>
 				)}
 
-				{/* Modal for Adding Food */}
-				{isModalOpen && (
-					<div className="fixed inset-0 bg-black bg-opacity-[0.5] flex items-center justify-center z-50">
-						<div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
-							<h2 className="text-2xl font-bold text-gray-800 mb-4">
+				{/* Add Food Modal */}
+				{isAddModalOpen && (
+					<div
+						className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="add-food-modal-title">
+						<div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[80vh] overflow-y-auto">
+							<h2
+								id="add-food-modal-title"
+								className="text-lg sm:text-2xl font-bold text-gray-800 mb-4">
 								Add New Food Item
 							</h2>
-							{error && <p className="text-red-500 mb-4">{error}</p>}
-							<form onSubmit={handleModalSubmit}>
+							{error && <p className="text-red-500 mb-4 text-sm">{error}</p>}
+							<form onSubmit={handleAddModalSubmit}>
 								<div className="mb-4">
-									<label className="block text-gray-700 mb-2">Category</label>
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Category
+									</label>
 									<select
 										value={newFood.category}
 										onChange={(e) =>
 											setNewFood({ ...newFood, category: e.target.value })
 										}
-										className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
 										required
 										disabled={isLoading}>
 										<option value="" disabled>
@@ -276,46 +394,52 @@ export default function Menu() {
 									</select>
 								</div>
 								<div className="mb-4">
-									<label className="block text-gray-700 mb-2">Name</label>
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Name
+									</label>
 									<input
 										type="text"
 										value={newFood.name}
 										onChange={(e) =>
 											setNewFood({ ...newFood, name: e.target.value })
 										}
-										className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
 										required
 										disabled={isLoading}
 									/>
 								</div>
 								<div className="mb-4">
-									<label className="block text-gray-700 mb-2">Image</label>
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Image
+									</label>
 									<input
 										type="file"
 										accept="image/*"
 										onChange={(e) =>
 											setNewFood({ ...newFood, imageFile: e.target.files[0] })
 										}
-										className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
 										required
 										disabled={isLoading}
 									/>
 								</div>
 								<div className="mb-4">
-									<label className="block text-gray-700 mb-2">3D Model</label>
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										3D Model
+									</label>
 									<input
 										type="file"
 										accept=".glb,.gltf"
 										onChange={(e) =>
 											setNewFood({ ...newFood, modelFile: e.target.files[0] })
 										}
-										className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
 										required
 										disabled={isLoading}
 									/>
 								</div>
 								<div className="mb-4">
-									<label className="block text-gray-700 mb-2">
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
 										Description
 									</label>
 									<textarea
@@ -323,50 +447,54 @@ export default function Menu() {
 										onChange={(e) =>
 											setNewFood({ ...newFood, description: e.target.value })
 										}
-										className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
 										rows="3"
 										required
 										disabled={isLoading}></textarea>
 								</div>
 								<div className="grid grid-cols-2 gap-4 mb-4">
-									<div className="mb-4">
-										<label className="block text-gray-700 mb-2">Size</label>
+									<div>
+										<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+											Size
+										</label>
 										<input
 											type="text"
 											value={newFood.size}
 											onChange={(e) =>
 												setNewFood({ ...newFood, size: e.target.value })
 											}
-											className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+											className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
 											required
 											disabled={isLoading}
 										/>
 									</div>
-									<div className="mb-4">
-										<label className="block text-gray-700 mb-2">
+									<div>
+										<label className="block text-gray-700 mb-2 text-sm sm:text-base">
 											Prepared Time
 										</label>
 										<input
-											type="number"
+											type="text"
 											value={newFood.time}
 											onChange={(e) =>
 												setNewFood({ ...newFood, time: e.target.value })
 											}
-											className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+											className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
 											required
 											disabled={isLoading}
 										/>
 									</div>
 								</div>
 								<div className="mb-4">
-									<label className="block text-gray-700 mb-2">Price</label>
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Price
+									</label>
 									<input
 										type="number"
 										value={newFood.price}
 										onChange={(e) =>
 											setNewFood({ ...newFood, price: e.target.value })
 										}
-										className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
 										step="0.01"
 										min="0"
 										required
@@ -376,16 +504,23 @@ export default function Menu() {
 								<div className="flex justify-end space-x-2">
 									<button
 										type="button"
-										onClick={() => setIsModalOpen(false)}
-										className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
+										onClick={() => setIsAddModalOpen(false)}
+										className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition text-sm sm:text-base"
 										disabled={isLoading}>
 										Cancel
 									</button>
 									<button
 										type="submit"
-										disabled={isLoading}
-										className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition disabled:bg-green-300">
-										{isLoading ? 'Adding...' : 'Add'}
+										className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm sm:text-base disabled:bg-green-300"
+										disabled={isLoading}>
+										{isLoading ? (
+											<span className="flex items-center">
+												<ClipLoader size={20} color="#fff" className="mr-2" />
+												Adding...
+											</span>
+										) : (
+											'Add'
+										)}
 									</button>
 								</div>
 							</form>
@@ -393,28 +528,198 @@ export default function Menu() {
 					</div>
 				)}
 
-				{/* Loader for Form Submission */}
-				{isLoading && (
+				{/* Edit Food Modal */}
+				{isEditModalOpen && (
+					<div
+						className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="edit-food-modal-title">
+						<div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[80vh] overflow-y-auto">
+							<h2
+								id="edit-food-modal-title"
+								className="text-lg sm:text-2xl font-bold text-gray-800 mb-4">
+								Edit Food Item
+							</h2>
+							{error && <p className="text-red-500 mb-4 text-sm">{error}</p>}
+							<form onSubmit={handleEditModalSubmit}>
+								<div className="mb-4">
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Category
+									</label>
+									<select
+										value={editFood.category}
+										onChange={(e) =>
+											setEditFood({ ...editFood, category: e.target.value })
+										}
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+										required
+										disabled={isLoading}>
+										<option value="" disabled>
+											Select a category
+										</option>
+										{categories.map((cat, index) => (
+											<option key={index} value={cat.id}>
+												{cat.category_name}
+											</option>
+										))}
+									</select>
+								</div>
+								<div className="mb-4">
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Name
+									</label>
+									<input
+										type="text"
+										value={editFood.name}
+										onChange={(e) =>
+											setEditFood({ ...editFood, name: e.target.value })
+										}
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+										required
+										disabled={isLoading}
+									/>
+								</div>
+								<div className="mb-4">
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Image (optional)
+									</label>
+									<input
+										type="file"
+										accept="image/*"
+										onChange={(e) =>
+											setEditFood({ ...editFood, imageFile: e.target.files[0] })
+										}
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+										disabled={isLoading}
+									/>
+								</div>
+								<div className="mb-4">
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										3D Model (optional)
+									</label>
+									<input
+										type="file"
+										accept=".glb,.gltf"
+										onChange={(e) =>
+											setEditFood({ ...editFood, modelFile: e.target.files[0] })
+										}
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+										disabled={isLoading}
+									/>
+								</div>
+								<div className="mb-4">
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Description
+									</label>
+									<textarea
+										value={editFood.description}
+										onChange={(e) =>
+											setEditFood({ ...editFood, description: e.target.value })
+										}
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+										rows="3"
+										required
+										disabled={isLoading}></textarea>
+								</div>
+								<div className="grid grid-cols-2 gap-4 mb-4">
+									<div>
+										<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+											Size
+										</label>
+										<input
+											type="text"
+											value={editFood.size}
+											onChange={(e) =>
+												setEditFood({ ...editFood, size: e.target.value })
+											}
+											className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+											required
+											disabled={isLoading}
+										/>
+									</div>
+									<div>
+										<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+											Prepared Time
+										</label>
+										<input
+											type="text"
+											value={editFood.time}
+											onChange={(e) =>
+												setEditFood({ ...editFood, time: e.target.value })
+											}
+											className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+											required
+											disabled={isLoading}
+										/>
+									</div>
+								</div>
+								<div className="mb-4">
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Price
+									</label>
+									<input
+										type="number"
+										value={editFood.price}
+										onChange={(e) =>
+											setEditFood({ ...editFood, price: e.target.value })
+										}
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+										step="0.01"
+										min="0"
+										required
+										disabled={isLoading}
+									/>
+								</div>
+								<div className="flex justify-end space-x-2">
+									<button
+										type="button"
+										onClick={() => setIsEditModalOpen(false)}
+										className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition text-sm sm:text-base"
+										disabled={isLoading}>
+										Cancel
+									</button>
+									<button
+										type="submit"
+										className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm sm:text-base disabled:bg-green-300"
+										disabled={isLoading}>
+										{isLoading ? (
+											<span className="flex items-center">
+												<ClipLoader size={20} color="#fff" className="mr-2" />
+												Updating...
+											</span>
+										) : (
+											'Update'
+										)}
+									</button>
+								</div>
+							</form>
+						</div>
+					</div>
+				)}
+
+				{/* Global Loader for Form Submission and Delete */}
+				{isDeleteLoading && (
 					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
 						<div className="loader"></div>
 					</div>
 				)}
-			</div>
 
-			<SuccessModal
-				isOpen={sucessModal}
-				message={messages}
-				onClose={() => setSucessModal(false)}
-			/>
-			<DeleteConfirmationModal
-				isOpen={isDeleteModalOpen}
-				onConfirm={confirmDelete}
-				onCancel={() => {
-					setIsDeleteModalOpen(false);
-					setDeleteId(null);
-				}}
-				message={messages}
-			/>
+				<SuccessModal
+					isOpen={successModal}
+					message={message}
+					onClose={() => setSuccessModal(false)}
+				/>
+				<DeleteConfirmationModal
+					isOpen={isDeleteModalOpen}
+					onConfirm={confirmDelete}
+					onCancel={() => {
+						setIsDeleteModalOpen(false);
+						setDeleteId(null);
+					}}
+					message={message}
+				/>
+			</div>
 		</Sidebar>
 	);
 }

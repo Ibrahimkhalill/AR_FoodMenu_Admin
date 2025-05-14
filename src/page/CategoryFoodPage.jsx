@@ -78,9 +78,7 @@ export default function CategoryFoodPage() {
 							}>
 							<img
 								src={
-									`${import.meta.env.VITE_REACT_BASE_URL}${
-										food.normal_picture
-									}` || 'https://via.placeholder.com/150'
+									`${food.normal_picture}` || 'https://via.placeholder.com/150'
 								}
 								alt={food.item_name}
 								className="w-full h-[100px] object-cover rounded-lg mb-2"

@@ -63,7 +63,7 @@ export default function ARView() {
 					<div className="mb-6 flex items-center justify-center flex-col">
 						{selectedModel ? (
 							<model-viewer
-								src={`${import.meta.env.VITE_REACT_BASE_URL}${selectedModel}`}
+								src={`${selectedModel}`}
 								alt="3D food model"
 								shadow-intensity="1"
 								camera-controls

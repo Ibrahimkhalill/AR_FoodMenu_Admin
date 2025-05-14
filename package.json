@@ -26,6 +26,7 @@
 		"react-render-html": "^0.6.0",
 		"react-router-dom": "^7.1.1",
 		"react-slick": "^0.30.3",
+		"react-spinners": "^0.17.0",
 		"react-to-print": "^2.14.6",
 		"recharts": "^2.15.0",
 		"slick-carousel": "^1.8.1"

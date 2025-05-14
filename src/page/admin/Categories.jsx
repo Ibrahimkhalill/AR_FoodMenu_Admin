@@ -1,34 +1,35 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import Sidebar from '../../component/admin/Sidebar';
 import axiosInstance from '../../component/axiosInstance';
-import { FaPencilAlt, FaTrashAlt } from 'react-icons/fa';
+import { FaTrashAlt } from 'react-icons/fa';
 import CategorySkelton from '../../component/admin/CategorySkelton';
 import SuccessModal from '../../component/SuccessModal';
 import WarningModal from '../../component/WarningModal';
-import DeleteConfirmationModal from '../../component/DeleteConfirmationModal'; // Adjust the path as needed
+import DeleteConfirmationModal from '../../component/DeleteConfirmationModal';
+import { ClipLoader } from 'react-spinners';
 
 export default function Categories() {
-	const navigate = useNavigate();
 	const [categories, setCategories] = useState([]);
-	const [isModalOpen, setIsModalOpen] = useState(false);
-	const [isLoading, setIsLoading] = useState(false); // For form submission and delete
-	const [isSkeletonLoading, setIsSkeletonLoading] = useState(true); // For skeleton loader
-	const [newCategory, setNewCategory] = useState({ name: '', image: '' });
+	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
+	const [isDeleteLoading, setIsDeleteLoading] = useState(false);
+	const [isSkeletonLoading, setIsSkeletonLoading] = useState(true);
+	const [newCategory, setNewCategory] = useState({ name: '' });
+	const [editCategory, setEditCategory] = useState({ id: null, name: '' });
 	const [error, setError] = useState(null);
-	const [sucessModal, setSucessModal] = useState(false);
-	const [messages, setMessage] = useState('');
+	const [successModal, setSuccessModal] = useState(false);
+	const [message, setMessage] = useState('');
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 	const [deleteId, setDeleteId] = useState(null);
 
 	// Fetch categories from API
 	useEffect(() => {
-		fetchSeminarData();
+		fetchcategoryData();
 	}, []);
 
-	const fetchSeminarData = async () => {
-		setIsSkeletonLoading(true); // Show skeleton loader
+	const fetchcategoryData = async () => {
+		setIsSkeletonLoading(true);
 		try {
 			const response = await axiosInstance.get('restaurant/get_categories/');
 			if (response.status === 200) {
@@ -41,43 +42,80 @@ export default function Categories() {
 		} catch (error) {
 			console.error('❌ Error fetching category list:', error.message);
 			setError('Failed to load categories. Please try again.');
+			if (error.response?.status === 401) {
+				localStorage.removeItem('authToken');
+				window.location.href = '/login';
+			}
 		} finally {
-			setIsSkeletonLoading(false); // Hide skeleton loader
+			setIsSkeletonLoading(false);
 		}
 	};
 
-	const handleCategoryClick = (categoryName) => {
-		navigate(`/category/${categoryName.toLowerCase().replace(/\s+/g, '-')}`);
-	};
-
 	const handleAddCategory = () => {
-		setIsModalOpen(true);
+		setIsAddModalOpen(true);
 	};
 
-	const handleModalSubmit = async (e) => {
+	const handleEditCategory = (category) => {
+		setEditCategory({ id: category.id, name: category.category_name });
+		setIsEditModalOpen(true);
+	};
+
+	const handleAddModalSubmit = async (e) => {
 		e.preventDefault();
 		setError(null);
-		setIsLoading(true); // Show form submission loader
+		setIsLoading(true);
 
 		try {
-			// Send POST request to create a new category
 			const response = await axiosInstance.post('restaurant/create_category/', {
 				category_name: newCategory.name,
 			});
 
 			if (response.status === 200 || response.status === 201) {
 				setMessage('Category created successfully');
-				setSucessModal(true);
-				// Refresh category list
-				await fetchSeminarData();
-				setNewCategory({ name: '', image: '' });
-				setIsModalOpen(false);
+				setSuccessModal(true);
+				await fetchcategoryData();
+				setNewCategory({ name: '' });
+				setIsAddModalOpen(false);
 			}
 		} catch (err) {
 			console.error('Error creating category:', err);
 			setError('Failed to create category. Please try again.');
 		} finally {
-			setIsLoading(false); // Hide loader
+			setIsLoading(false);
+		}
+	};
+
+	const handleEditModalSubmit = async (e) => {
+		e.preventDefault();
+		setError(null);
+		setIsLoading(true);
+
+		try {
+			const response = await axiosInstance.patch(
+				`restaurant/update_category/${editCategory.id}/`,
+				{
+					category_name: editCategory.name,
+				}
+			);
+
+			if (response.status === 200) {
+				setMessage('Category updated successfully');
+				setSuccessModal(true);
+				await fetchcategoryData();
+				setEditCategory({ id: null, name: '' });
+				setIsEditModalOpen(false);
+			} else {
+				setError('Failed to update category.');
+			}
+		} catch (err) {
+			console.error('Error updating category:', err);
+			setError('Failed to update category. Please try again.');
+			if (err.response?.status === 401) {
+				localStorage.removeItem('authToken');
+				window.location.href = '/login';
+			}
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
@@ -89,7 +127,7 @@ export default function Categories() {
 
 	const confirmDelete = async () => {
 		if (deleteId) {
-			setIsLoading(true); // Show loader for delete
+			setIsDeleteLoading(true);
 			setError('');
 			setIsDeleteModalOpen(false);
 
@@ -101,8 +139,8 @@ export default function Categories() {
 				if (response.status === 204 || response.status === 200) {
 					console.log('✅ Category deleted successfully');
 					setMessage('Category deleted successfully');
-					setSucessModal(true);
-					await fetchSeminarData(); // Refresh the category list
+					setSuccessModal(true);
+					await fetchcategoryData();
 				} else {
 					throw new Error('Failed to delete category');
 				}
@@ -112,7 +150,7 @@ export default function Categories() {
 						'Failed to delete category. Please try again.'
 				);
 			} finally {
-				setIsLoading(false); // Hide loader
+				setIsDeleteLoading(false);
 				setDeleteId(null);
 			}
 		}
@@ -133,32 +171,33 @@ export default function Categories() {
 
 				{/* Category Grid or Skeleton Loader */}
 				{isSkeletonLoading ? (
-					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-12 gap-4">
-						{/* Render 6 skeleton placeholders */}
+					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 xl:grid-cols-12 gap-4">
 						{Array.from({ length: 6 }).map((_, index) => (
 							<CategorySkelton key={index} />
 						))}
 					</div>
 				) : (
-					<div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-12 gap-4">
+					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 xl:grid-cols-12 gap-4">
 						{categories.map((category, index) => (
 							<div
 								key={index}
-								className="bg-white px-2 py-2 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition">
+								className="bg-white px-2 py-2 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
+								onClick={() => handleEditCategory(category)}>
 								<img
 									src={
 										'https://e7.pngegg.com/pngimages/80/950/png-clipart-computer-icons-foodie-blog-categories-miscellaneous-food.png'
 									}
 									alt={category.category_name}
 									className="w-full h-16 object-cover rounded-t-lg"
+									onError={(e) => (e.target.src = '/fallback-category.png')}
 								/>
 								<div className="flex justify-between items-center">
-									<h4 className="text-md font-semibold text-gray-800">
+									<h4 className="text-sm font-semibold text-gray-800">
 										{category.category_name}
 									</h4>
 									<button
 										onClick={(e) => {
-											e.stopPropagation(); // Prevent navigating when clicking delete
+											e.stopPropagation();
 											handleDelete(category.id);
 										}}
 										className="text-gray-700 text-xs font-bold rounded-full px-2 py-1"
@@ -171,15 +210,23 @@ export default function Categories() {
 					</div>
 				)}
 
-				{/* Modal for Adding Category */}
-				{isModalOpen && (
-					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-						<div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-							<h2 className="text-xl font-bold mb-4">Add New Category</h2>
-							{error && <p className="text-red-500 mb-4">{error}</p>}
-							<form onSubmit={handleModalSubmit}>
+				{/* Add Category Modal */}
+				{isAddModalOpen && (
+					<div
+						className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="add-category-modal-title">
+						<div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
+							<h2
+								id="add-category-modal-title"
+								className="text-lg sm:text-xl font-bold mb-4">
+								Add New Category
+							</h2>
+							{error && <p className="text-red-500 mb-4 text-sm">{error}</p>}
+							<form onSubmit={handleAddModalSubmit}>
 								<div className="mb-4">
-									<label className="block text-gray-700 mb-2">
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
 										Category Name
 									</label>
 									<input
@@ -188,7 +235,7 @@ export default function Categories() {
 										onChange={(e) =>
 											setNewCategory({ ...newCategory, name: e.target.value })
 										}
-										className="w-full p-2 border rounded-lg"
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
 										required
 										disabled={isLoading}
 									/>
@@ -196,16 +243,23 @@ export default function Categories() {
 								<div className="flex justify-end space-x-2">
 									<button
 										type="button"
-										onClick={() => setIsModalOpen(false)}
-										className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
+										onClick={() => setIsAddModalOpen(false)}
+										className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition text-sm sm:text-base"
 										disabled={isLoading}>
 										Cancel
 									</button>
 									<button
 										type="submit"
-										className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition disabled:bg-green-300"
+										className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm sm:text-base disabled:bg-green-300"
 										disabled={isLoading}>
-										{isLoading ? 'Adding...' : 'Add'}
+										{isLoading ? (
+											<span className="flex items-center">
+												<ClipLoader size={20} color="#fff" className="mr-2" />
+												Adding...
+											</span>
+										) : (
+											'Add'
+										)}
 									</button>
 								</div>
 							</form>
@@ -213,32 +267,90 @@ export default function Categories() {
 					</div>
 				)}
 
-				{/* Loader for Form Submission and Delete */}
-				{isLoading && (
+				{/* Edit Category Modal */}
+				{isEditModalOpen && (
+					<div
+						className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="edit-category-modal-title">
+						<div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
+							<h2
+								id="edit-category-modal-title"
+								className="text-lg sm:text-xl font-bold mb-4">
+								Edit Category
+							</h2>
+							{error && <p className="text-red-500 mb-4 text-sm">{error}</p>}
+							<form onSubmit={handleEditModalSubmit}>
+								<div className="mb-4">
+									<label className="block text-gray-700 mb-2 text-sm sm:text-base">
+										Category Name
+									</label>
+									<input
+										type="text"
+										value={editCategory.name}
+										onChange={(e) =>
+											setEditCategory({ ...editCategory, name: e.target.value })
+										}
+										className="w-full p-2 border rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
+										required
+										disabled={isLoading}
+									/>
+								</div>
+								<div className="flex justify-end space-x-2">
+									<button
+										type="button"
+										onClick={() => setIsEditModalOpen(false)}
+										className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition text-sm sm:text-base"
+										disabled={isLoading}>
+										Cancel
+									</button>
+									<button
+										type="submit"
+										className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm sm:text-base disabled:bg-green-300"
+										disabled={isLoading}>
+										{isLoading ? (
+											<span className="flex items-center">
+												<ClipLoader size={20} color="#fff" className="mr-2" />
+												Updating...
+											</span>
+										) : (
+											'Update'
+										)}
+									</button>
+								</div>
+							</form>
+						</div>
+					</div>
+				)}
+
+				{/* Global Loader for Form Submission and Delete */}
+				{isDeleteLoading && (
 					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
 						<div className="loader"></div>
 					</div>
 				)}
+
+				<SuccessModal
+					message={message}
+					isOpen={successModal}
+					onClose={() => setSuccessModal(false)}
+				/>
+				<WarningModal
+					message={error}
+					isOpen={!!error}
+					onClose={() => setError(null)}
+				/>
+				<DeleteConfirmationModal
+					isOpen={isDeleteModalOpen}
+					onConfirm={confirmDelete}
+					onCancel={() => {
+						setIsDeleteModalOpen(false);
+						setDeleteId(null);
+					}}
+					message={message}
+				/>
 			</div>
-			<SuccessModal
-				message={messages}
-				isOpen={sucessModal}
-				onClose={() => setSucessModal(false)}
-			/>
-			<WarningModal
-				message={error}
-				isOpen={error}
-				onClose={() => setError(null)}
-			/>
-			<DeleteConfirmationModal
-				isOpen={isDeleteModalOpen}
-				onConfirm={confirmDelete}
-				onCancel={() => {
-					setIsDeleteModalOpen(false);
-					setDeleteId(null);
-				}}
-				message={messages}
-			/>
 		</Sidebar>
 	);
 }
