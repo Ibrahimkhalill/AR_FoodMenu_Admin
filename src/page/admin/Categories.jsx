@@ -171,13 +171,13 @@ export default function Categories() {
 
 				{/* Category Grid or Skeleton Loader */}
 				{isSkeletonLoading ? (
-					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 xl:grid-cols-12 gap-4">
+					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 2xl:grid-cols-12 gap-4">
 						{Array.from({ length: 6 }).map((_, index) => (
 							<CategorySkelton key={index} />
 						))}
 					</div>
 				) : (
-					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 xl:grid-cols-12 gap-4">
+					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-12 gap-4">
 						{categories.map((category, index) => (
 							<div
 								key={index}
@@ -188,7 +188,7 @@ export default function Categories() {
 										'https://e7.pngegg.com/pngimages/80/950/png-clipart-computer-icons-foodie-blog-categories-miscellaneous-food.png'
 									}
 									alt={category.category_name}
-									className="w-full h-16 object-cover rounded-t-lg"
+									className="w-full h-22 object-cover rounded-t-lg"
 									onError={(e) => (e.target.src = '/fallback-category.png')}
 								/>
 								<div className="flex justify-between items-center">

@@ -91,13 +91,14 @@ const Login = () => {
 			}
 		} catch (error) {
 			if (error.response) {
+				console.log("d", error.response.data.Message)
 				// If the server returned a response (e.g., 400 status)
-				const serverErrors = error.response.data.error; // Adjust based on your API structure
+				const serverErrors = error.response.data.Message; // Adjust based on your API structure
 				const formErrors = { userName: '', password: '' };
 
 				setErrors(formErrors);
 
-				setError(serverErrors);
+				setError("Invalid username or password");
 			} else {
 				// Handle other types of errors (e.g., network issues)
 				console.log('Error without response:', error.message);
@@ -162,7 +163,7 @@ const Login = () => {
 								{errors.userName ? errors.userName : ''}
 							</div>
 						</div>
-						<div className="mb-5 relative">
+						<div className="mb-7 relative">
 							<label
 								htmlFor="password"
 								className="block text-base font-medium text-white">
@@ -194,7 +195,7 @@ const Login = () => {
 								{errors.password ? errors.password : ''}
 							</div>
 						</div>
-						<div className="mb-6 flex items-center">
+						{/* <div className="mb-6 flex items-center">
 							<input
 								type="checkbox"
 								id="remember"
@@ -205,7 +206,7 @@ const Login = () => {
 								className="ml-2 text-sm font-medium text-white">
 								Remember Password
 							</label>
-						</div>
+						</div> */}
 						<button
 							disabled={isLoading}
 							type="submit"
